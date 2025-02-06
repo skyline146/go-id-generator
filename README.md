@@ -22,7 +22,7 @@ go run ./cmd/server/server.go --http-port 3002 --grpc-port 3003
 
 ## In-Memory Database
 
-The project uses [Dragonfly](https://dragonfly.io/) as an in-memory database, which is fully compatible with the Go Redis client. A locking mechanism is implemented to prevent race conditions.
+The project uses [Dragonfly](https://dragonflydb.io/) as an in-memory database, which is fully compatible with the Go Redis client. A locking mechanism is implemented to prevent race conditions.
 
 ### Starting the Database
 
