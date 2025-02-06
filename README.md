@@ -50,7 +50,7 @@ go run ./cmd/server/server.go
 go run ./cmd/server/server.go --http-port 3002 --grpc-port 3003
 ```
 
-2. **Third Terminal (Client):**
+3. **Third Terminal (Client):**
 ```bash
 go run ./cmd/test-client/client.go
 ```
