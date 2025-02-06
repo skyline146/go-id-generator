@@ -1,0 +1,23 @@
+syntax = "proto3";
+package id_generator;
+
+option go_package = "internal/pb";
+
+enum SysType {
+    Unknown = 0;
+    Vendor = 1;
+    Box = 2;
+    Clients = 3;
+}
+
+service Generator {
+    rpc GetUniqueId(UniqueIdRequest) returns (UniqueIdReply) {}
+}
+
+message UniqueIdReply {
+    string id = 1;
+}
+
+message UniqueIdRequest {
+    SysType sys_type = 1;
+}
