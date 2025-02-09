@@ -71,6 +71,8 @@ func acquireLock(ctx context.Context) error {
 		}
 
 		// TODO: maybe impement queue and pub/sub instead of active waiting
+		// Pros: avoiding goroutine starvation
+		// Cons: maybe less performance due to additional calls to dragonfly
 		time.Sleep(time.Millisecond)
 	}
 }
