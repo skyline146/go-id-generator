@@ -26,21 +26,17 @@ func GetUniqueId(ctx context.Context, sysType string) (newId string, err error) 
 		}
 	}()
 
-	if newId, err = generateId(sysType); err != nil {
-		return "", err
-	}
-
 	for {
+		if newId, err = generateId(sysType); err != nil {
+			return "", err
+		}
+
 		_, err := dragonfly.Get(ctx, newId).Result()
 
 		if err == redis.Nil {
 			break
 		} else if err != nil {
 			return "", fmt.Errorf("error on getting value from dragonfly db by key `%s`: %v", newId, err)
-		}
-
-		if newId, err = generateId(sysType); err != nil {
-			return "", err
 		}
 	}
 
@@ -71,13 +67,12 @@ func acquireLock(ctx context.Context) error {
 		}
 
 		if isKeySet {
-			break
+			return nil
 		}
 
+		// TODO: maybe impement queue and pub/sub instead of active waiting
 		time.Sleep(time.Millisecond)
 	}
-
-	return nil
 }
 
 func releaseLock(ctx context.Context) error {
