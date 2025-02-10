@@ -10,7 +10,9 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-const REDIS_LOCK_KEY = "some-lock-key"
+const (
+	REDIS_LOCK_KEY = "some-lock-key"
+)
 
 var dragonfly = redis.NewClient(&redis.Options{
 	Addr: "localhost:6379",
@@ -63,16 +65,13 @@ func acquireLock(ctx context.Context) error {
 	for {
 		isKeySet, err := dragonfly.SetNX(ctx, REDIS_LOCK_KEY, "", time.Second*10).Result()
 		if err != nil {
-			return fmt.Errorf("failed on setting lock key in dragonfly: %v", err)
+			return fmt.Errorf("failed on setting lock key: %v", err)
 		}
 
 		if isKeySet {
 			return nil
 		}
 
-		// TODO: maybe impement queue and pub/sub instead of active waiting
-		// Pros: avoiding goroutine starvation
-		// Cons: maybe less performance due to additional calls to dragonfly
 		time.Sleep(time.Millisecond)
 	}
 }
@@ -80,7 +79,7 @@ func acquireLock(ctx context.Context) error {
 func releaseLock(ctx context.Context) error {
 	_, err := dragonfly.Del(ctx, REDIS_LOCK_KEY).Result()
 	if err != nil {
-		return fmt.Errorf("failed on deleting lock key from dragonfly: %v", err)
+		return fmt.Errorf("failed on deleting lock key: %v", err)
 	}
 
 	return nil

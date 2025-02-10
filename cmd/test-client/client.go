@@ -41,14 +41,7 @@ func main() {
 	storeOrIncrement := func(key string) {
 		v, loaded := ids.LoadOrStore(key, 1)
 		if loaded {
-			switch v := v.(type) {
-			case int:
-				{
-					ids.Store(key, v+1)
-				}
-			default:
-				log.Fatal("value in sync map must be int")
-			}
+			ids.Store(key, v.(int)+1)
 		}
 	}
 
@@ -91,15 +84,8 @@ func main() {
 	i := 0
 	ids.Range(func(key, value any) bool {
 		i++
-		switch value := value.(type) {
-		case int:
-			{
-				if int(value) > 1 {
-					fmt.Println("Found duplicate id: ", key)
-				}
-			}
-		default:
-			log.Fatal("value in sync map must be int")
+		if value.(int) > 1 {
+			fmt.Println("Found duplicate id: ", key)
 		}
 
 		return true
