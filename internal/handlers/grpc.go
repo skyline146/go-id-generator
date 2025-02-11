@@ -39,7 +39,7 @@ func (s *GrpcServer) Serve() error {
 }
 
 func (s *grpcServerInternal) GetUniqueId(_ context.Context, req *pb.UniqueIdRequest) (*pb.UniqueIdReply, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 
 	newId, err := lib.GetUniqueId(ctx, req.GetSysType().String())

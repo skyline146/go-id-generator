@@ -39,6 +39,10 @@ func main() {
 	var ids sync.Map
 
 	storeOrIncrement := func(key string) {
+		if key == "" {
+			return
+		}
+
 		v, loaded := ids.LoadOrStore(key, 1)
 		if loaded {
 			ids.Store(key, v.(int)+1)

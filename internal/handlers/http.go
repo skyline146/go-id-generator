@@ -30,7 +30,7 @@ func getUniqueId(res http.ResponseWriter, req *http.Request) {
 	query := req.URL.Query()
 	sysType := query.Get("sys_type")
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 
 	newId, err := lib.GetUniqueId(ctx, sysType)

@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	REDIS_LOCK_KEY = "some-lock-key"
+	REDIS_LOCK_KEY       = "some-lock-key"
+	REDIS_NOTIFY_CHANNEL = "some-notify-channel"
 )
 
 var dragonfly = redis.NewClient(&redis.Options{
@@ -72,6 +73,18 @@ func acquireLock(ctx context.Context) error {
 			return nil
 		}
 
+		// channel := dragonfly.Subscribe(ctx, REDIS_NOTIFY_CHANNEL)
+		// defer channel.Close()
+
+		// notifyChannel := channel.Channel(redis.WithChannelSendTimeout(time.Second * 10))
+
+		// for {
+		// 	redisMsg := <-notifyChannel
+		// 	if redisMsg.Payload == "unlock" {
+		// 		break
+		// 	}
+		// }
+
 		time.Sleep(time.Millisecond)
 	}
 }
@@ -81,6 +94,11 @@ func releaseLock(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed on deleting lock key: %v", err)
 	}
+
+	// _, err = dragonfly.Publish(ctx, REDIS_NOTIFY_CHANNEL, "unlock").Result()
+	// if err != nil {
+	// 	return fmt.Errorf("failed on publishing to notify channel: %v", err)
+	// }
 
 	return nil
 }
