@@ -13,13 +13,6 @@ Use the following command-line variables to specify the ports:
 - `--http-port`: Specify the port for the HTTP server (default: `3000`)
 - `--grpc-port`: Specify the port for the gRPC server (default: `3001`)
 
-Example commands to run the server:
-
-```bash
-go run ./cmd/server/server.go
-go run ./cmd/server/server.go --http-port 3002 --grpc-port 3003
-```
-
 ## In-Memory Database
 
 The project uses [Dragonfly](https://dragonflydb.io/) as an in-memory database, which is fully compatible with the Go Redis client. A locking mechanism is implemented to prevent race conditions.
