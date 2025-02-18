@@ -22,11 +22,9 @@ func GetUniqueId(ctx context.Context, sysType string) (newId string, err error) 
 		}
 
 		if isNewIdUnique {
-			break
+			return newId, nil
 		}
 	}
-
-	return newId, nil
 }
 
 func generateId(sysType string) (string, error) {
