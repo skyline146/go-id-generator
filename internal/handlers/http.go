@@ -11,19 +11,49 @@ import (
 )
 
 type HttpServer struct {
-	Port int
+	Port   int
+	server *http.Server
 }
 
 func (s *HttpServer) Serve() error {
-	http.HandleFunc("/get-unique-id", getUniqueId)
-
-	log.Printf("http server listening at %v", s.Port)
-	err := http.ListenAndServe(fmt.Sprintf(":%d", s.Port), nil)
-	if err != nil {
-		return fmt.Errorf("failed to start http server: %v", err)
+	if s.server != nil {
+		return fmt.Errorf("http server is already running")
 	}
 
-	return nil
+	s.server = &http.Server{
+		Addr:    fmt.Sprintf(":%d", s.Port),
+		Handler: s.getHandler(),
+	}
+
+	log.Printf("http server listening at %v", s.Port)
+	err := s.server.ListenAndServe()
+	if err == http.ErrServerClosed {
+		return nil
+	} else {
+		return fmt.Errorf("failed to start http server: %v", err)
+	}
+}
+
+func (s *HttpServer) Stop(stopCh chan struct{}, done func()) {
+	defer done()
+
+	<-stopCh
+
+	if s.server == nil {
+		panic("can't stop non-exist http server")
+	}
+
+	err := s.server.Shutdown(context.Background())
+	if err != nil {
+		panic(fmt.Sprintf("failed to shutdown http server: %v", err))
+	}
+}
+
+func (s *HttpServer) getHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/get-unique-id", getUniqueId)
+
+	return mux
 }
 
 func getUniqueId(res http.ResponseWriter, req *http.Request) {

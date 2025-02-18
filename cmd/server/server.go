@@ -2,7 +2,10 @@ package main
 
 import (
 	"flag"
-	"log"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 
 	"id-generator/internal/handlers"
 )
@@ -15,19 +18,36 @@ var (
 func main() {
 	flag.Parse()
 
+	shutdown := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(2)
+
 	go func() {
 		httpServer := &handlers.HttpServer{Port: *httpPort}
 
+		go httpServer.Stop(shutdown, wg.Done)
+
 		err := httpServer.Serve()
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	}()
 
-	grpcServer := &handlers.GrpcServer{Port: *grpcPort}
+	go func() {
+		grpcServer := &handlers.GrpcServer{Port: *grpcPort}
 
-	err := grpcServer.Serve()
-	if err != nil {
-		log.Fatal(err)
-	}
+		go grpcServer.Stop(shutdown, wg.Done)
+
+		err := grpcServer.Serve()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
+	close(shutdown)
+
+	wg.Wait()
 }

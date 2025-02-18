@@ -14,7 +14,8 @@ import (
 )
 
 type GrpcServer struct {
-	Port int
+	Port   int
+	server *grpc.Server
 }
 
 type grpcServerInternal struct {
@@ -22,6 +23,10 @@ type grpcServerInternal struct {
 }
 
 func (s *GrpcServer) Serve() error {
+	if s.server != nil {
+		return fmt.Errorf("grpc server is already running")
+	}
+
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.Port))
 	if err != nil {
 		return fmt.Errorf("failed to listen: %v", err)
@@ -30,12 +35,25 @@ func (s *GrpcServer) Serve() error {
 	grpcServer := grpc.NewServer()
 	pb.RegisterGeneratorServer(grpcServer, &grpcServerInternal{})
 	log.Printf("grpc server listening at %v", lis.Addr())
+	s.server = grpcServer
 
 	if err := grpcServer.Serve(lis); err != nil {
 		return fmt.Errorf("failed to serve grpc: %v", err)
 	}
 
 	return nil
+}
+
+func (s *GrpcServer) Stop(stopCh chan struct{}, done func()) {
+	defer done()
+
+	<-stopCh
+
+	if s.server == nil {
+		panic("can't stop non-exist grpc server")
+	}
+
+	s.server.GracefulStop()
 }
 
 func (s *grpcServerInternal) GetUniqueId(_ context.Context, req *pb.UniqueIdRequest) (*pb.UniqueIdReply, error) {

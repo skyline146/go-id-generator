@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -15,9 +16,10 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+var numOfRequestsFlag = flag.Int("requests", 100, "Number of test requests per 1 server")
+
 const (
-	host          = "localhost"
-	numOfRequests = 50
+	host = "localhost"
 )
 
 var (
@@ -29,6 +31,9 @@ var (
 
 func main() {
 	execStart := time.Now()
+
+	flag.Parse()
+	numOfRequests := *numOfRequestsFlag
 
 	grpcClient1, conn1 := initGrpcClient(grpcAddr1)
 	grpcClient2, conn2 := initGrpcClient(grpcAddr2)

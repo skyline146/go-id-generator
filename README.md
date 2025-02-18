@@ -31,6 +31,10 @@ A test client is provided to simulate and test the service with two instances ru
 
 ### `./cmd/test-client/client.go`
 
+Use the following command-line variable to specify number of requests per server:
+
+- `--requests`: Number of requests per 1 server, e.g. 200 requests * 4 servers = 800 total (default: `100`)
+
 To test the service, you need to run two instances of the server in separate terminals:
 
 1. **First Terminal:**
@@ -45,5 +49,5 @@ go run ./cmd/server/server.go --http-port 3002 --grpc-port 3003
 
 3. **Third Terminal (Client):**
 ```bash
-go run ./cmd/test-client/client.go
+go run ./cmd/test-client/client.go --requests 200
 ```
