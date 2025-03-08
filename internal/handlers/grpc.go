@@ -60,7 +60,7 @@ func (s *grpcServerInternal) GetUniqueId(_ context.Context, req *pb.UniqueIdRequ
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 
-	newId, err := lib.GetUniqueId(ctx, req.GetSysType().String())
+	newId, err := lib.GetUniqueIdWithType(ctx, req.GetSysType().String())
 	if err != nil {
 		return nil, fmt.Errorf("error while generating new unique id: %v", err)
 	}

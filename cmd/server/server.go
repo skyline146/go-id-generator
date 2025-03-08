@@ -2,12 +2,20 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 
+	generator_storage "id-generator/internal/generator-storage"
 	"id-generator/internal/handlers"
+	"id-generator/internal/pb"
+
+	"github.com/joho/godotenv"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (
@@ -16,6 +24,7 @@ var (
 )
 
 func main() {
+	initWithMaster()
 	flag.Parse()
 
 	shutdown := make(chan struct{})
@@ -50,4 +59,25 @@ func main() {
 	close(shutdown)
 
 	wg.Wait()
+}
+
+func initWithMaster() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Print("failed to load env file")
+	}
+
+	MASTER_SERVER_GRPC_PORT := os.Getenv("MASTER_SERVER_GRPC_PORT")
+	if MASTER_SERVER_GRPC_PORT == "" {
+		log.Fatal("'KAFKA_ADDR' variable is undefined")
+	}
+
+	masterServerGrpcAddr := fmt.Sprintf("%s:%s", "localhost", MASTER_SERVER_GRPC_PORT)
+	conn, err := grpc.NewClient(masterServerGrpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("failed to connect to master's grpc server (%s): %v\n", masterServerGrpcAddr, err)
+	}
+
+	generator_storage.Storage.MasterGrpcClient = pb.NewOrchestratorClient(conn)
+	generator_storage.Storage.Fill()
 }

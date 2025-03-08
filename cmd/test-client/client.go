@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -43,6 +44,8 @@ func main() {
 
 	var ids sync.Map
 
+	resultsByServer := make([]string, 0)
+
 	storeOrIncrement := func(key string) {
 		if key == "" {
 			return
@@ -55,40 +58,53 @@ func main() {
 	}
 
 	go func() {
+		start := time.Now()
 		defer wg.Done()
 		for i := 1; i <= numOfRequests; i++ {
 			storeOrIncrement(mockHttpRequest(httpAddr1))
 		}
+
+		resultsByServer = append(resultsByServer, fmt.Sprintf("%s finished in %.3f", httpAddr1, time.Since(start).Seconds()))
 	}()
 
 	go func() {
+		start := time.Now()
 		defer wg.Done()
 		for i := 1; i <= numOfRequests; i++ {
 			storeOrIncrement(mockHttpRequest(httpAddr2))
 		}
+
+		resultsByServer = append(resultsByServer, fmt.Sprintf("%s finished in %.3f", httpAddr2, time.Since(start).Seconds()))
 	}()
 
 	go func() {
+		start := time.Now()
 		defer wg.Done()
 		defer conn1.Close()
 
 		for i := 1; i <= numOfRequests; i++ {
 			storeOrIncrement(mockGrpcRequest(grpcClient1, grpcAddr1))
 		}
+
+		resultsByServer = append(resultsByServer, fmt.Sprintf("(grpc)%s finished in %.3f", grpcAddr1, time.Since(start).Seconds()))
 	}()
 
 	go func() {
+		start := time.Now()
 		defer wg.Done()
 		defer conn2.Close()
 
 		for i := 1; i <= numOfRequests; i++ {
 			storeOrIncrement(mockGrpcRequest(grpcClient2, grpcAddr2))
 		}
+
+		resultsByServer = append(resultsByServer, fmt.Sprintf("(grpc)%s finished in %.3f", grpcAddr2, time.Since(start).Seconds()))
 	}()
 
 	wg.Wait()
 
 	fmt.Printf("Total time of execution %d requests: %.3fs\n", numOfRequests*4, time.Since(execStart).Seconds())
+	fmt.Println(strings.Join(resultsByServer, "\n"))
 
 	i := 0
 	ids.Range(func(key, value any) bool {
@@ -121,7 +137,7 @@ func mockHttpRequest(httpAddr string) string {
 		return ""
 	}
 
-	fmt.Printf("unique id from http (%s): %s\n", httpIpAndPort, string(body))
+	// fmt.Printf("unique id from http (%s): %s\n", httpIpAndPort, string(body))
 
 	return string(body)
 }
@@ -136,7 +152,7 @@ func mockGrpcRequest(grpcClient pb.GeneratorClient, grpcAddr string) string {
 		return ""
 	}
 
-	fmt.Printf("unique id from grpc (%s): %s\n", grpcAddr, response.GetId())
+	// fmt.Printf("unique id from grpc (%s): %s\n", grpcAddr, response.GetId())
 	cancel()
 
 	return response.GetId()

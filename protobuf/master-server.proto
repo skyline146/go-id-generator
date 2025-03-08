@@ -1,0 +1,15 @@
+syntax = "proto3";
+package id_generator;
+
+option go_package = "internal/pb";
+
+service Orchestrator {
+    rpc GetMultiplierAndTimestamp(MultiplierAndTimestampRequest) returns (MultiplierAndTimestampReply) {}
+}
+
+message MultiplierAndTimestampReply {
+    int64 timestamp = 1;
+    int32 multiplier = 2;
+}
+
+message MultiplierAndTimestampRequest {}
