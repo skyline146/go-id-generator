@@ -15,8 +15,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-const CURRENT_MULTIPLIER_KEY = "current-multiplier-key"
-
 type grpcServerInternal struct {
 	pb.UnimplementedOrchestratorServer
 }
