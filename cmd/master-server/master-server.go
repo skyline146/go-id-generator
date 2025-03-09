@@ -55,6 +55,20 @@ func main() {
 }
 
 func (s *grpcServerInternal) GetMultiplierAndTimestamp(_ context.Context, _ *pb.MultiplierAndTimestampRequest) (*pb.MultiplierAndTimestampReply, error) {
+	if masterServerCache.multiplier > 10000 {
+		waitUntilTimestampChanges(masterServerCache.timestamp)
+	}
+
+	timestamp, multiplier := masterServerCache.getDataAndUpdate()
+
+	return &pb.MultiplierAndTimestampReply{
+			Timestamp:  timestamp,
+			Multiplier: multiplier,
+		},
+		nil
+}
+
+func (c *masterServer) getDataAndUpdate() (int64, int32) {
 	masterServerCache.mu.Lock()
 	defer masterServerCache.mu.Unlock()
 
@@ -64,23 +78,16 @@ func (s *grpcServerInternal) GetMultiplierAndTimestamp(_ context.Context, _ *pb.
 
 	now := time.Now().Unix()
 
-	if masterServerCache.multiplier > 10000 {
-		waitUntilTimestampChanges(masterServerCache.timestamp)
-	}
-
 	if masterServerCache.timestamp < now {
 		masterServerCache.timestamp = now
 		masterServerCache.multiplier = 1
 	}
 
-	return &pb.MultiplierAndTimestampReply{
-			Timestamp:  masterServerCache.timestamp,
-			Multiplier: masterServerCache.multiplier,
-		},
-		nil
+	return masterServerCache.timestamp, masterServerCache.multiplier
 }
 
 func waitUntilTimestampChanges(currentTimestamp int64) {
 	for currentTimestamp != time.Now().Unix() {
+		time.Sleep(time.Millisecond)
 	}
 }

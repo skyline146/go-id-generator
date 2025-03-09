@@ -9,6 +9,8 @@ import (
 	"id-generator/internal/pb"
 )
 
+const LEFT_IDS_PERCENTAGE_TO_FILL = 0.3
+
 type id struct {
 	Timestamp int64
 	Tail      int32
@@ -23,41 +25,45 @@ type storage struct {
 
 var Storage = storage{make([]id, 0), &sync.Mutex{}, 1000, nil}
 
-func (gs *storage) Fill() {
-	gs.mu.Lock()
-	defer gs.mu.Unlock()
+func (s *storage) Fill() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	newData, err := gs.MasterGrpcClient.GetMultiplierAndTimestamp(ctx, &pb.MultiplierAndTimestampRequest{})
+	newData, err := s.MasterGrpcClient.GetMultiplierAndTimestamp(ctx, &pb.MultiplierAndTimestampRequest{})
 	if err != nil {
-		log.Fatalf("could not get data from master server: %v", err)
+		log.Printf("could not get data from master server: %v", err)
 	}
 
-	newIds := make([]id, gs.defaultCapacity)
-	min, max := int(newData.Multiplier*gs.defaultCapacity-gs.defaultCapacity), int(newData.Multiplier*gs.defaultCapacity)
-
-	idx := 0
-	for i := min; i < max; i++ {
-		newIds[idx] = id{newData.Timestamp, int32(i)}
-		idx++
-	}
-
-	gs.ids = append(gs.ids, newIds...)
+	s.ids = append(s.ids, s.generateIdsByCapacity(newData.Multiplier, newData.Timestamp)...)
 }
 
-func (gs *storage) GetRawId() id {
-	gs.mu.Lock()
-	defer gs.mu.Unlock()
+func (s *storage) GetRawId() id {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	id := gs.ids[0]
-	gs.ids = gs.ids[1:]
+	id := s.ids[0]
+	s.ids = s.ids[1:]
 
-	idsLeftPercentage := float64(len(gs.ids)) / float64(gs.defaultCapacity)
-	if idsLeftPercentage < 0.3 {
-		go gs.Fill()
+	idsLeftPercentage := float64(len(s.ids)) / float64(s.defaultCapacity)
+	if idsLeftPercentage < LEFT_IDS_PERCENTAGE_TO_FILL {
+		go s.Fill()
 	}
 
 	return id
+}
+
+func (s *storage) generateIdsByCapacity(multiplier int32, timestamp int64) []id {
+	newIds := make([]id, s.defaultCapacity)
+	min, max := int(multiplier*s.defaultCapacity-s.defaultCapacity), int(multiplier*s.defaultCapacity)
+
+	idx := 0
+	for i := min; i < max; i++ {
+		newIds[idx] = id{timestamp, int32(i)}
+		idx++
+	}
+
+	return newIds
 }
