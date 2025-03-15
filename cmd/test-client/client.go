@@ -106,18 +106,20 @@ func main() {
 	fmt.Printf("Total time of execution %d requests: %.3fs\n", numOfRequests*4, time.Since(execStart).Seconds())
 	fmt.Println(strings.Join(resultsByServer, "\n"))
 
+	isDuplicateFound := false
 	i := 0
 	ids.Range(func(key, value any) bool {
 		i++
 		if value.(int) > 1 {
 			fmt.Println("Found duplicate id: ", key)
+			isDuplicateFound = true
 		}
 
 		return true
 	})
 
 	fmt.Println("Total received ids: ", i)
-	if numOfRequests*4 == i {
+	if !isDuplicateFound {
 		fmt.Println("No duplicate ids were found")
 	}
 }

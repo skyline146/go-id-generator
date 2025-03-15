@@ -6,6 +6,8 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"id-generator/internal/cache"
@@ -42,6 +44,14 @@ func main() {
 	grpcServer := grpc.NewServer()
 	pb.RegisterOrchestratorServer(grpcServer, &grpcServerInternal{})
 	log.Printf("grpc server listening at %v", lis.Addr())
+
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		<-sigChan
+
+		grpcServer.GracefulStop()
+	}()
 
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve grpc: %v", err)
