@@ -19,6 +19,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+const MAX_ALLOWED_MULTIPLIER = 10000
+
 type grpcServerInternal struct {
 	pb.UnimplementedOrchestratorServer
 }
@@ -75,7 +77,7 @@ func (s *grpcServerInternal) GetMultiplierAndTimestamp(_ context.Context, _ *pb.
 		return nil, fmt.Errorf("there was an error while getting multiplier or timestamp")
 	}
 
-	if multiplier > 10000 {
+	if multiplier > MAX_ALLOWED_MULTIPLIER {
 		timestamp = lib.WaitUntilTimestampChanges(timestamp)
 		multiplier = 1
 
