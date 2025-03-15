@@ -6,9 +6,11 @@ import (
 	"log"
 	"net"
 	"os"
-	"sync"
 	"time"
 
+	"id-generator/internal/cache"
+	"id-generator/internal/lib"
+	master_server "id-generator/internal/master-server"
 	"id-generator/internal/pb"
 
 	"github.com/joho/godotenv"
@@ -19,13 +21,7 @@ type grpcServerInternal struct {
 	pb.UnimplementedOrchestratorServer
 }
 
-type masterServer struct {
-	multiplier int32
-	timestamp  int64
-	mu         *sync.Mutex
-}
-
-var masterServerCache = masterServer{1, time.Now().Unix(), &sync.Mutex{}}
+var masterServerCache = master_server.NewMaster()
 
 func main() {
 	err := godotenv.Load()
@@ -53,39 +49,34 @@ func main() {
 }
 
 func (s *grpcServerInternal) GetMultiplierAndTimestamp(_ context.Context, _ *pb.MultiplierAndTimestampRequest) (*pb.MultiplierAndTimestampReply, error) {
-	masterServerCache.mu.Lock()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 
-	if masterServerCache.multiplier > 10000 {
-		waitUntilTimestampChanges(masterServerCache.timestamp)
+	cache.Dragonfly.AcquireLock(ctx)
+
+	timestampCh := make(chan int64)
+	go func() {
+		timestampCh <- masterServerCache.GetTimestamp(ctx)
+	}()
+	multiplier := masterServerCache.GetMultiplier(ctx)
+	timestamp := <-timestampCh
+
+	if multiplier == 0 || timestamp == 0 {
+		return nil, fmt.Errorf("there was an error while getting multiplier or timestamp")
 	}
 
-	timestamp, multiplier := masterServerCache.getDataAndUpdate()
-	masterServerCache.mu.Unlock()
+	if multiplier > 10000 {
+		timestamp = lib.WaitUntilTimestampChanges(timestamp)
+		multiplier = 1
+
+		masterServerCache.Reset(timestamp)
+	}
+
+	cache.Dragonfly.ReleaseLock(ctx)
 
 	return &pb.MultiplierAndTimestampReply{
 			Timestamp:  timestamp,
 			Multiplier: multiplier,
 		},
 		nil
-}
-
-func (c *masterServer) getDataAndUpdate() (int64, int32) {
-	defer func() {
-		masterServerCache.multiplier++
-	}()
-
-	now := time.Now().Unix()
-
-	if masterServerCache.timestamp < now {
-		masterServerCache.timestamp = now
-		masterServerCache.multiplier = 1
-	}
-
-	return masterServerCache.timestamp, masterServerCache.multiplier
-}
-
-func waitUntilTimestampChanges(currentTimestamp int64) {
-	for currentTimestamp != time.Now().Unix() {
-		time.Sleep(time.Millisecond)
-	}
 }

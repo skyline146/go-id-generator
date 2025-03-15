@@ -7,7 +7,7 @@ import (
 	"net"
 	"time"
 
-	"id-generator/internal/lib"
+	generator_storage "id-generator/internal/generator-storage"
 	"id-generator/internal/pb"
 
 	"google.golang.org/grpc"
@@ -60,7 +60,7 @@ func (s *grpcServerInternal) GetUniqueId(_ context.Context, req *pb.UniqueIdRequ
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 
-	newId, err := lib.GetUniqueIdWithType(ctx, req.GetSysType().String())
+	newId, err := generator_storage.GetUniqueIdWithType(ctx, req.GetSysType().String())
 	if err != nil {
 		return nil, fmt.Errorf("error while generating new unique id: %v", err)
 	}

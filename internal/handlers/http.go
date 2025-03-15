@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"id-generator/internal/lib"
+	generator_storage "id-generator/internal/generator-storage"
 )
 
 type HttpServer struct {
@@ -63,7 +63,7 @@ func getUniqueId(res http.ResponseWriter, req *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 
-	newId, err := lib.GetUniqueIdWithType(ctx, sysType)
+	newId, err := generator_storage.GetUniqueIdWithType(ctx, sysType)
 	if err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 		res.Write([]byte(fmt.Sprintf("error while generating new unique id: %v", err)))

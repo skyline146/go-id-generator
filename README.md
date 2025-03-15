@@ -17,6 +17,18 @@ Use the following command-line variables to specify the ports:
 - `--http-port`: Specify the port for the HTTP server (default: `3000`)
 - `--grpc-port`: Specify the port for the gRPC server (default: `3001`)
 
+## In-Memory Database
+
+The project uses [Dragonfly](https://dragonflydb.io/) as an in-memory database, which is fully compatible with the Go Redis client. A locking mechanism is implemented to prevent race conditions.
+
+### Starting the Database
+
+To start the Dragonfly database using Docker, run the following command:
+
+```bash
+docker compose up -d
+```
+
 ## Test Client
 
 A test client is provided to simulate and test the service with two instances running simultaneously.

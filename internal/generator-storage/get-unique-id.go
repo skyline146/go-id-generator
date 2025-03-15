@@ -1,19 +1,19 @@
-package lib
+package generator_storage
 
 import (
 	"context"
 	"fmt"
 
-	generator_storage "id-generator/internal/generator-storage"
+	"id-generator/internal/lib"
 )
 
 func GetUniqueIdWithType(ctx context.Context, sysType string) (newId string, err error) {
-	sysTypeId, err := GetSysTypeValue(sysType)
+	sysTypeId, err := lib.GetSysTypeValue(sysType)
 	if err != nil {
 		return "", err
 	}
 
-	rawId := generator_storage.Storage.GetRawId()
+	rawId := Storage.GetRawId()
 
 	return fmt.Sprintf("%010d%01d%07d", rawId.Timestamp, sysTypeId, rawId.Tail), nil
 }
