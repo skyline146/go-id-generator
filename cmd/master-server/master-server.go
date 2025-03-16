@@ -7,11 +7,11 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	"id-generator/internal/cache"
-	"id-generator/internal/lib"
 	master_server "id-generator/internal/master-server"
 	"id-generator/internal/pb"
 
@@ -19,13 +19,14 @@ import (
 	"google.golang.org/grpc"
 )
 
-const MAX_ALLOWED_MULTIPLIER = 10000
-
 type grpcServerInternal struct {
 	pb.UnimplementedOrchestratorServer
 }
 
-var masterServerCache = master_server.NewMaster()
+var (
+	masterServerCache = master_server.NewMaster()
+	localMutex        = &sync.Mutex{}
+)
 
 func main() {
 	err := godotenv.Load()
@@ -61,8 +62,8 @@ func main() {
 }
 
 func (s *grpcServerInternal) GetMultiplierAndTimestamp(_ context.Context, _ *pb.MultiplierAndTimestampRequest) (*pb.MultiplierAndTimestampReply, error) {
-	masterServerCache.Lock()
-	defer masterServerCache.Unlock()
+	localMutex.Lock()
+	defer localMutex.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -70,17 +71,9 @@ func (s *grpcServerInternal) GetMultiplierAndTimestamp(_ context.Context, _ *pb.
 	cache.Dragonfly.AcquireLock(ctx)
 	defer cache.Dragonfly.ReleaseLock(ctx)
 
-	multiplier, timestamp := masterServerCache.GetMultiplierAndTimestamp(ctx)
-
-	if multiplier == 0 || timestamp == 0 {
-		return nil, fmt.Errorf("there was an error while getting multiplier or timestamp")
-	}
-
-	if multiplier > MAX_ALLOWED_MULTIPLIER {
-		timestamp = lib.WaitUntilTimestampChanges(timestamp)
-		multiplier = 1
-
-		masterServerCache.Reset(timestamp)
+	multiplier, timestamp, err := masterServerCache.GetMultiplierAndTimestamp(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	return &pb.MultiplierAndTimestampReply{
