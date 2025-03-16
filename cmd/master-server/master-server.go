@@ -61,17 +61,16 @@ func main() {
 }
 
 func (s *grpcServerInternal) GetMultiplierAndTimestamp(_ context.Context, _ *pb.MultiplierAndTimestampRequest) (*pb.MultiplierAndTimestampReply, error) {
+	masterServerCache.Lock()
+	defer masterServerCache.Unlock()
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	cache.Dragonfly.AcquireLock(ctx)
+	defer cache.Dragonfly.ReleaseLock(ctx)
 
-	timestampCh := make(chan int64)
-	go func() {
-		timestampCh <- masterServerCache.GetTimestamp(ctx)
-	}()
-	multiplier := masterServerCache.GetMultiplier(ctx)
-	timestamp := <-timestampCh
+	multiplier, timestamp := masterServerCache.GetMultiplierAndTimestamp(ctx)
 
 	if multiplier == 0 || timestamp == 0 {
 		return nil, fmt.Errorf("there was an error while getting multiplier or timestamp")
@@ -83,8 +82,6 @@ func (s *grpcServerInternal) GetMultiplierAndTimestamp(_ context.Context, _ *pb.
 
 		masterServerCache.Reset(timestamp)
 	}
-
-	cache.Dragonfly.ReleaseLock(ctx)
 
 	return &pb.MultiplierAndTimestampReply{
 			Timestamp:  timestamp,
