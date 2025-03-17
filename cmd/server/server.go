@@ -21,11 +21,12 @@ import (
 var (
 	httpPort = flag.Int("http-port", 3000, "Port to run http server")
 	grpcPort = flag.Int("grpc-port", 3001, "Port to run grpc server")
+	env      = flag.String("env", ".env", "Env file to load values from")
 )
 
 func main() {
-	initWithMaster()
 	flag.Parse()
+	initWithMaster()
 
 	shutdown := make(chan struct{})
 	var wg sync.WaitGroup
@@ -62,7 +63,7 @@ func main() {
 }
 
 func initWithMaster() {
-	err := godotenv.Load()
+	err := godotenv.Load(*env)
 	if err != nil {
 		log.Print("failed to load env file")
 	}

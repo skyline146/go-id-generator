@@ -84,6 +84,10 @@ func (ms *masterServer) reset(timestamp int64) {
 }
 
 func (ms *masterServer) GetMultiplierAndTimestamp(ctx context.Context) (multiplier int32, timestamp int64, err error) {
+	// TODO: need to verify that no other good solutions exists except full redis lock for one master server
+	cache.Dragonfly.AcquireLock(ctx)
+	defer cache.Dragonfly.ReleaseLock(ctx)
+
 	timestampCh := make(chan int64, 1)
 	go func() {
 		timestampCh <- ms.getTimestamp(ctx)

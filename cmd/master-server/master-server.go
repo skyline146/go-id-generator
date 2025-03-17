@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -11,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"id-generator/internal/cache"
 	master_server "id-generator/internal/master-server"
 	"id-generator/internal/pb"
 
@@ -26,10 +26,13 @@ type grpcServerInternal struct {
 var (
 	masterServerCache = master_server.NewMaster()
 	localMutex        = &sync.Mutex{}
+	env               = flag.String("env", ".env", "Env file to load values from")
 )
 
 func main() {
-	err := godotenv.Load()
+	flag.Parse()
+
+	err := godotenv.Load(*env)
 	if err != nil {
 		log.Print("failed to load env file")
 	}
@@ -67,9 +70,6 @@ func (s *grpcServerInternal) GetMultiplierAndTimestamp(_ context.Context, _ *pb.
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-
-	cache.Dragonfly.AcquireLock(ctx)
-	defer cache.Dragonfly.ReleaseLock(ctx)
 
 	multiplier, timestamp, err := masterServerCache.GetMultiplierAndTimestamp(ctx)
 	if err != nil {

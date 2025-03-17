@@ -60,6 +60,7 @@ func main() {
 	go func() {
 		start := time.Now()
 		defer wg.Done()
+
 		for i := 1; i <= numOfRequests; i++ {
 			storeOrIncrement(mockHttpRequest(httpAddr1))
 		}
@@ -70,6 +71,7 @@ func main() {
 	go func() {
 		start := time.Now()
 		defer wg.Done()
+
 		for i := 1; i <= numOfRequests; i++ {
 			storeOrIncrement(mockHttpRequest(httpAddr2))
 		}
