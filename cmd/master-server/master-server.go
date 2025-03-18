@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -25,7 +24,6 @@ type grpcServerInternal struct {
 
 var (
 	masterServerCache = master_server.NewMaster()
-	localMutex        = &sync.Mutex{}
 	env               = flag.String("env", ".env", "Env file to load values from")
 )
 
@@ -41,6 +39,8 @@ func main() {
 	if MASTER_SERVER_GRPC_PORT == "" {
 		log.Fatal("'KAFKA_ADDR' variable is undefined")
 	}
+
+	masterServerCache.LoadRedisScript()
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", MASTER_SERVER_GRPC_PORT))
 	if err != nil {
@@ -65,9 +65,6 @@ func main() {
 }
 
 func (s *grpcServerInternal) GetMultiplierAndTimestamp(_ context.Context, _ *pb.MultiplierAndTimestampRequest) (*pb.MultiplierAndTimestampReply, error) {
-	localMutex.Lock()
-	defer localMutex.Unlock()
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 

@@ -26,9 +26,6 @@ type storage struct {
 var Storage = storage{make([]id, 0), &sync.Mutex{}, 1000, nil}
 
 func (s *storage) Fill() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -42,13 +39,14 @@ func (s *storage) Fill() {
 
 func (s *storage) GetRawId() id {
 	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	rawId := s.ids[0]
 	s.ids = s.ids[1:]
-	s.mu.Unlock()
 
 	idsLeftPercentage := float64(len(s.ids)) / float64(s.defaultCapacity)
 	if idsLeftPercentage < LEFT_IDS_PERCENTAGE_TO_FILL {
-		go s.Fill()
+		s.Fill()
 	}
 
 	return rawId

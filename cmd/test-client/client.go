@@ -84,9 +84,17 @@ func main() {
 		defer wg.Done()
 		defer conn1.Close()
 
+		var localWg sync.WaitGroup
+		localWg.Add(numOfRequests)
+
 		for i := 1; i <= numOfRequests; i++ {
-			storeOrIncrement(mockGrpcRequest(grpcClient1, grpcAddr1))
+			go func() {
+				storeOrIncrement(mockGrpcRequest(grpcClient1, grpcAddr1))
+				localWg.Done()
+			}()
 		}
+
+		localWg.Wait()
 
 		resultsByServer = append(resultsByServer, fmt.Sprintf("(grpc)%s finished in %.3f", grpcAddr1, time.Since(start).Seconds()))
 	}()
@@ -96,9 +104,17 @@ func main() {
 		defer wg.Done()
 		defer conn2.Close()
 
+		var localWg sync.WaitGroup
+		localWg.Add(numOfRequests)
+
 		for i := 1; i <= numOfRequests; i++ {
-			storeOrIncrement(mockGrpcRequest(grpcClient2, grpcAddr2))
+			go func() {
+				storeOrIncrement(mockGrpcRequest(grpcClient2, grpcAddr2))
+				localWg.Done()
+			}()
 		}
+
+		localWg.Wait()
 
 		resultsByServer = append(resultsByServer, fmt.Sprintf("(grpc)%s finished in %.3f", grpcAddr2, time.Since(start).Seconds()))
 	}()
@@ -147,7 +163,7 @@ func mockHttpRequest(httpAddr string) string {
 }
 
 func mockGrpcRequest(grpcClient pb.GeneratorClient, grpcAddr string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 
 	response, err := grpcClient.GetUniqueId(ctx, &pb.UniqueIdRequest{SysType: pb.SysType_Vendor})
 	if err != nil {
