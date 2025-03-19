@@ -31,7 +31,7 @@ func (s *storage) Fill() {
 
 	newData, err := s.MasterGrpcClient.GetMultiplierAndTimestamp(ctx, &pb.MultiplierAndTimestampRequest{})
 	if err != nil {
-		log.Printf("could not get data from master server: %v", err)
+		log.Fatalf("could not get data from master server: %v", err)
 	}
 
 	s.ids = append(s.ids, s.generateIdsByCapacity(newData.Multiplier, newData.Timestamp)...)

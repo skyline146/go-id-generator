@@ -2,6 +2,8 @@ package master_server
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
@@ -28,6 +30,46 @@ func NewMaster() *masterServer {
 	}
 
 	return &masterServer{}
+}
+
+func (ms *masterServer) LoadRedisScript() {
+	bytes, err := os.ReadFile("redis-script.lua")
+	if err != nil {
+		log.Fatalf("failed to load script.lua file: %v", err)
+	}
+
+	hash := sha1.New()
+	hash.Write(bytes)
+	scriptSha := hex.EncodeToString(hash.Sum(nil))
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	results, err := cache.Dragonfly.RawClient.ScriptExists(ctx, scriptSha).Result()
+	if err != nil {
+		fmt.Printf("failed to check if script exists by sha representation: %v\n", err)
+	}
+
+	if results[0] {
+		ms.scriptSha = scriptSha
+		return
+	}
+
+	scriptSha, err = cache.Dragonfly.RawClient.ScriptLoad(ctx, string(bytes)).Result()
+	if err != nil {
+		log.Fatalf("failed to load script: %v", err)
+	}
+
+	ms.scriptSha = scriptSha
+}
+
+func (ms *masterServer) GetMultiplierAndTimestamp(ctx context.Context) (multiplier int32, timestamp int64, err error) {
+	result, err := cache.Dragonfly.RawClient.EvalSha(ctx, ms.scriptSha, []string{REDIS_COUNTER_KEY, REDIS_TIMESTAMP_KEY}, MAX_ALLOWED_MULTIPLIER).Int64Slice()
+	if err != nil {
+		return 0, 0, fmt.Errorf("there was an error while getting multiplier or timestamp: %v", err)
+	}
+
+	return int32(result[0]), result[1], nil
 }
 
 // func (ms *masterServer) getMultiplier(ctx context.Context) int32 {
@@ -76,29 +118,3 @@ func NewMaster() *masterServer {
 // 		log.Printf("error in pipeline while resetting multiplier and timestamp: %v\n", err)
 // 	}
 // }
-
-func (ms *masterServer) LoadRedisScript() {
-	bytes, err := os.ReadFile("redis-script.lua")
-	if err != nil {
-		log.Fatalf("failed to load script.lua file: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	sha1, err := cache.Dragonfly.RawClient.ScriptLoad(ctx, string(bytes)).Result()
-	if err != nil {
-		log.Fatalf("failed to load script: %v", err)
-	}
-
-	ms.scriptSha = sha1
-}
-
-func (ms *masterServer) GetMultiplierAndTimestamp(ctx context.Context) (multiplier int32, timestamp int64, err error) {
-	result, err := cache.Dragonfly.RawClient.EvalSha(ctx, ms.scriptSha, []string{REDIS_COUNTER_KEY, REDIS_TIMESTAMP_KEY}, MAX_ALLOWED_MULTIPLIER).Int64Slice()
-	if err != nil {
-		return 0, 0, fmt.Errorf("there was an error while getting multiplier or timestamp: %v", err)
-	}
-
-	return int32(result[0]), result[1], nil
-}

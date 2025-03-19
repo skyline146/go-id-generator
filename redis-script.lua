@@ -2,7 +2,7 @@ local multiplier = redis.call("INCR", KEYS[1])
 local timestamp = redis.call("GET", KEYS[2])
 
 if not timestamp then
-    timestamp = redis.call("time")[1]
+    timestamp = redis.call("TIME")[1]
     redis.call("SET", KEYS[2], timestamp)
 end
 
