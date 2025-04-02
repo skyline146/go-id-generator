@@ -17,15 +17,22 @@ type id struct {
 }
 
 type storage struct {
-	ids              []id
+	idsCh            chan id
 	mu               *sync.Mutex
+	isFilling        bool
 	defaultCapacity  int32
 	MasterGrpcClient pb.OrchestratorClient
 }
 
-var Storage = storage{make([]id, 0), &sync.Mutex{}, 1000, nil}
+var Storage = storage{make(chan id, 1000), &sync.Mutex{}, false, 1000, nil}
 
 func (s *storage) Fill() {
+	defer func() {
+		s.mu.Lock()
+		s.isFilling = false
+		s.mu.Unlock()
+	}()
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -34,22 +41,32 @@ func (s *storage) Fill() {
 		log.Fatalf("could not get data from master server: %v", err)
 	}
 
-	s.ids = append(s.ids, s.generateIdsByCapacity(newData.Multiplier, newData.Timestamp)...)
+	newIds := s.generateIdsByCapacity(newData.Multiplier, newData.Timestamp)
+
+	for _, id := range newIds {
+		s.idsCh <- id
+	}
 }
 
 func (s *storage) GetRawId() id {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	go s.checkIsFillNeeded()
 
-	rawId := s.ids[0]
-	s.ids = s.ids[1:]
-
-	idsLeftPercentage := float64(len(s.ids)) / float64(s.defaultCapacity)
-	if idsLeftPercentage < LEFT_IDS_PERCENTAGE_TO_FILL {
-		s.Fill()
-	}
+	rawId := <-s.idsCh
 
 	return rawId
+}
+
+func (s *storage) checkIsFillNeeded() {
+	idsLeftPercentage := float64(len(s.idsCh)) / float64(s.defaultCapacity)
+
+	if idsLeftPercentage < LEFT_IDS_PERCENTAGE_TO_FILL {
+		s.mu.Lock()
+		if !s.isFilling {
+			s.isFilling = true
+			go s.Fill()
+		}
+		s.mu.Unlock()
+	}
 }
 
 func (s *storage) generateIdsByCapacity(multiplier int32, timestamp int64) []id {
