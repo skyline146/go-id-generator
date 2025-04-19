@@ -10,8 +10,8 @@ import (
 	"syscall"
 
 	generator_storage "id-generator/internal/generator-storage"
-	"id-generator/internal/handlers"
 	"id-generator/internal/pb"
+	"id-generator/internal/servers"
 
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
@@ -24,35 +24,35 @@ var (
 	env      = flag.String("env", ".env", "Env file to load values from")
 )
 
+type Server interface {
+	Serve() error
+	Stop(chan struct{}, func())
+}
+
 func main() {
 	flag.Parse()
-	initWithMaster()
+	storage := generator_storage.NewStorage(1000)
+	initStorageWithMasterServer(storage)
 
 	shutdown := make(chan struct{})
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	go func() {
-		httpServer := &handlers.HttpServer{Port: *httpPort}
+	servers := []Server{
+		servers.NewGrpcServer(*grpcPort, storage),
+		servers.NewHttpServer(*httpPort, storage),
+	}
 
-		go httpServer.Stop(shutdown, wg.Done)
+	for _, server := range servers {
+		go func() {
+			go server.Stop(shutdown, wg.Done)
 
-		err := httpServer.Serve()
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	go func() {
-		grpcServer := &handlers.GrpcServer{Port: *grpcPort}
-
-		go grpcServer.Stop(shutdown, wg.Done)
-
-		err := grpcServer.Serve()
-		if err != nil {
-			panic(err)
-		}
-	}()
+			err := server.Serve()
+			if err != nil {
+				panic(err)
+			}
+		}()
+	}
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -62,7 +62,7 @@ func main() {
 	wg.Wait()
 }
 
-func initWithMaster() {
+func initStorageWithMasterServer(storage *generator_storage.Storage) {
 	err := godotenv.Load(*env)
 	if err != nil {
 		log.Print("failed to load env file")
@@ -79,6 +79,5 @@ func initWithMaster() {
 		log.Fatalf("failed to connect to master's grpc server (%s): %v\n", masterServerGrpcAddr, err)
 	}
 
-	generator_storage.Storage.MasterGrpcClient = pb.NewOrchestratorClient(conn)
-	generator_storage.Storage.Fill()
+	storage.Init(pb.NewOrchestratorClient(conn))
 }

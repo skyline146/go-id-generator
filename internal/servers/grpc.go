@@ -1,4 +1,4 @@
-package handlers
+package servers
 
 import (
 	"context"
@@ -13,16 +13,25 @@ import (
 	"google.golang.org/grpc"
 )
 
-type GrpcServer struct {
-	Port   int
-	server *grpc.Server
+type grpcServer struct {
+	Port    int
+	Storage *generator_storage.Storage
+	server  *grpc.Server
 }
 
-type grpcServerInternal struct {
+type grpcController struct {
 	pb.UnimplementedGeneratorServer
+	storage *generator_storage.Storage
 }
 
-func (s *GrpcServer) Serve() error {
+func NewGrpcServer(port int, storage *generator_storage.Storage) *grpcServer {
+	return &grpcServer{
+		Port:    port,
+		Storage: storage,
+	}
+}
+
+func (s *grpcServer) Serve() error {
 	if s.server != nil {
 		return fmt.Errorf("grpc server is already running")
 	}
@@ -33,7 +42,9 @@ func (s *GrpcServer) Serve() error {
 	}
 
 	grpcServer := grpc.NewServer()
-	pb.RegisterGeneratorServer(grpcServer, &grpcServerInternal{})
+	pb.RegisterGeneratorServer(grpcServer, &grpcController{
+		storage: s.Storage,
+	})
 	log.Printf("grpc server listening at %v", lis.Addr())
 	s.server = grpcServer
 
@@ -44,7 +55,7 @@ func (s *GrpcServer) Serve() error {
 	return nil
 }
 
-func (s *GrpcServer) Stop(stopCh chan struct{}, done func()) {
+func (s *grpcServer) Stop(stopCh chan struct{}, done func()) {
 	defer done()
 
 	<-stopCh
@@ -56,11 +67,11 @@ func (s *GrpcServer) Stop(stopCh chan struct{}, done func()) {
 	s.server.GracefulStop()
 }
 
-func (s *grpcServerInternal) GetUniqueId(_ context.Context, req *pb.UniqueIdRequest) (*pb.UniqueIdReply, error) {
+func (s *grpcController) GetUniqueId(_ context.Context, req *pb.UniqueIdRequest) (*pb.UniqueIdReply, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 
-	newId, err := generator_storage.GetUniqueIdWithType(ctx, req.GetSysType().String())
+	newId, err := s.storage.GetUniqueIdWithType(ctx, req.GetSysType().String())
 	if err != nil {
 		return nil, fmt.Errorf("error while generating new unique id: %v", err)
 	}

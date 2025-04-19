@@ -2,10 +2,11 @@ package generator_storage
 
 import (
 	"context"
+	"fmt"
 	"log"
-	"sync"
 	"time"
 
+	"id-generator/internal/lib"
 	"id-generator/internal/pb"
 )
 
@@ -16,67 +17,78 @@ type id struct {
 	Tail      int32
 }
 
-type storage struct {
+type Storage struct {
 	idsCh            chan id
-	mu               *sync.Mutex
-	isFilling        bool
-	defaultCapacity  int32
-	MasterGrpcClient pb.OrchestratorClient
+	masterGrpcClient pb.OrchestratorClient
 }
 
-var Storage = storage{make(chan id, 1000), &sync.Mutex{}, false, 1000, nil}
+func NewStorage(capacity int32) *Storage {
+	return &Storage{
+		idsCh: make(chan id, capacity),
+	}
+}
 
-func (s *storage) Fill() {
-	defer func() {
-		s.mu.Lock()
-		s.isFilling = false
-		s.mu.Unlock()
-	}()
+func (s *Storage) Init(grpcClient pb.OrchestratorClient) {
+	s.masterGrpcClient = grpcClient
+	s.fill()
+	go s.observeIdsChanLen()
+}
 
+func (s *Storage) GetUniqueIdWithType(ctx context.Context, sysType string) (newId string, err error) {
+	sysTypeId, err := lib.GetSysTypeValue(sysType)
+	if err != nil {
+		return "", err
+	}
+
+	rawId := s.GetRawId()
+
+	return fmt.Sprintf("%010d%01d%07d", rawId.Timestamp, sysTypeId, rawId.Tail), nil
+}
+
+func (s *Storage) fill() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	newData, err := s.MasterGrpcClient.GetMultiplierAndTimestamp(ctx, &pb.MultiplierAndTimestampRequest{})
+	newData, err := s.masterGrpcClient.GetMultiplierAndTimestamp(ctx, &pb.MultiplierAndTimestampRequest{})
 	if err != nil {
 		log.Fatalf("could not get data from master server: %v", err)
 	}
 
-	newIds := s.generateIdsByCapacity(newData.Multiplier, newData.Timestamp)
+	newIds := s.generateIdsByChanCapacity(newData)
 
 	for _, id := range newIds {
 		s.idsCh <- id
 	}
 }
 
-func (s *storage) GetRawId() id {
-	go s.checkIsFillNeeded()
-
-	rawId := <-s.idsCh
-
-	return rawId
+func (s *Storage) GetRawId() id {
+	return <-s.idsCh
 }
 
-func (s *storage) checkIsFillNeeded() {
-	idsLeftPercentage := float64(len(s.idsCh)) / float64(s.defaultCapacity)
+func (s *Storage) isFillNeeded() bool {
+	idsLeftPercentage := float64(len(s.idsCh)) / float64(cap(s.idsCh))
 
-	if idsLeftPercentage < LEFT_IDS_PERCENTAGE_TO_FILL {
-		s.mu.Lock()
-		if !s.isFilling {
-			s.isFilling = true
-			go s.Fill()
+	return idsLeftPercentage < LEFT_IDS_PERCENTAGE_TO_FILL
+}
+
+func (s *Storage) observeIdsChanLen() {
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if s.isFillNeeded() {
+			s.fill()
 		}
-		s.mu.Unlock()
 	}
 }
 
-func (s *storage) generateIdsByCapacity(multiplier int32, timestamp int64) []id {
-	newIds := make([]id, s.defaultCapacity)
-	min, max := int(multiplier*s.defaultCapacity-s.defaultCapacity), int(multiplier*s.defaultCapacity)
+func (s *Storage) generateIdsByChanCapacity(newData *pb.MultiplierAndTimestampReply) []id {
+	chanCap := cap(s.idsCh)
+	newIds := make([]id, chanCap)
+	min := int(newData.Multiplier)*chanCap - chanCap
 
-	idx := 0
-	for i := min; i < max; i++ {
-		newIds[idx] = id{timestamp, int32(i)}
-		idx++
+	for i := range newIds {
+		newIds[i] = id{newData.Timestamp, int32(min + i)}
 	}
 
 	return newIds

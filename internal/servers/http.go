@@ -1,4 +1,4 @@
-package handlers
+package servers
 
 import (
 	"context"
@@ -10,12 +10,24 @@ import (
 	generator_storage "id-generator/internal/generator-storage"
 )
 
-type HttpServer struct {
-	Port   int
-	server *http.Server
+type httpServer struct {
+	Port    int
+	Storage *generator_storage.Storage
+	server  *http.Server
 }
 
-func (s *HttpServer) Serve() error {
+type httpController struct {
+	storage *generator_storage.Storage
+}
+
+func NewHttpServer(port int, storage *generator_storage.Storage) *httpServer {
+	return &httpServer{
+		Port:    port,
+		Storage: storage,
+	}
+}
+
+func (s *httpServer) Serve() error {
 	if s.server != nil {
 		return fmt.Errorf("http server is already running")
 	}
@@ -34,7 +46,7 @@ func (s *HttpServer) Serve() error {
 	}
 }
 
-func (s *HttpServer) Stop(stopCh chan struct{}, done func()) {
+func (s *httpServer) Stop(stopCh chan struct{}, done func()) {
 	defer done()
 
 	<-stopCh
@@ -49,21 +61,25 @@ func (s *HttpServer) Stop(stopCh chan struct{}, done func()) {
 	}
 }
 
-func (s *HttpServer) getHandler() http.Handler {
+func (s *httpServer) getHandler() http.Handler {
+	httpController := &httpController{
+		storage: s.Storage,
+	}
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/get-unique-id", getUniqueId)
+	mux.HandleFunc("/get-unique-id", httpController.getUniqueId)
 
 	return mux
 }
 
-func getUniqueId(res http.ResponseWriter, req *http.Request) {
+func (s *httpController) getUniqueId(res http.ResponseWriter, req *http.Request) {
 	query := req.URL.Query()
 	sysType := query.Get("sys_type")
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 
-	newId, err := generator_storage.GetUniqueIdWithType(ctx, sysType)
+	newId, err := s.storage.GetUniqueIdWithType(ctx, sysType)
 	if err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 		res.Write([]byte(fmt.Sprintf("error while generating new unique id: %v", err)))
