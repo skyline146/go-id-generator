@@ -60,7 +60,7 @@ func TestIdsOnUniqueness(t *testing.T) {
 	start := time.Now()
 
 	go func() {
-		for i := 0; i < 1000000; i++ {
+		for range 1000000 {
 			id, err := testStorage_master1.GetUniqueIdWithType("Vendor")
 			if err != nil {
 				fmt.Println(err)
@@ -76,7 +76,7 @@ func TestIdsOnUniqueness(t *testing.T) {
 	}()
 
 	go func() {
-		for i := 0; i < 1000000; i++ {
+		for range 1000000 {
 			id, err := testStorage_master2.GetUniqueIdWithType("Vendor")
 			if err != nil {
 				fmt.Println(err)

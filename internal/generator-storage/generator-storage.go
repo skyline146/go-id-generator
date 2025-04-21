@@ -28,10 +28,14 @@ func NewStorage(capacity int32) *Storage {
 	}
 }
 
-func (s *Storage) Init(grpcClient pb.OrchestratorClient) {
-	s.masterGrpcClient = grpcClient
+func (s *Storage) Init(masterGrpcClient pb.OrchestratorClient) {
+	s.masterGrpcClient = masterGrpcClient
 	s.fill()
 	go s.observeIdsChanLen()
+}
+
+func (s *Storage) GetRawId() id {
+	return <-s.idsCh
 }
 
 func (s *Storage) GetUniqueIdWithType(sysType string) (newId string, err error) {
@@ -61,10 +65,6 @@ func (s *Storage) fill() {
 	}
 }
 
-func (s *Storage) GetRawId() id {
-	return <-s.idsCh
-}
-
 func (s *Storage) isFillNeeded() bool {
 	idsLeftPercentage := float64(len(s.idsCh)) / float64(cap(s.idsCh))
 
@@ -73,11 +73,10 @@ func (s *Storage) isFillNeeded() bool {
 
 func (s *Storage) observeIdsChanLen() {
 	ticker := time.NewTicker(time.Millisecond)
-	defer ticker.Stop()
 
 	for range ticker.C {
 		if s.isFillNeeded() {
-			s.fill()
+			go s.fill()
 		}
 	}
 }

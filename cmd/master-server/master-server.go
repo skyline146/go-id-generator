@@ -23,7 +23,7 @@ type grpcServerInternal struct {
 }
 
 var (
-	masterServerCache = master_server.NewMaster()
+	masterServerCache = master_server.NewMasterServer()
 	env               = flag.String("env", ".env", "Env file to load values from")
 )
 
@@ -40,8 +40,6 @@ func main() {
 		log.Fatal("'KAFKA_ADDR' variable is undefined")
 	}
 
-	masterServerCache.LoadRedisScript()
-
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", MASTER_SERVER_GRPC_PORT))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -52,16 +50,19 @@ func main() {
 	log.Printf("grpc server listening at %v", lis.Addr())
 
 	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-		<-sigChan
-
-		grpcServer.GracefulStop()
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("failed to serve grpc: %v", err)
+		}
 	}()
 
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve grpc: %v", err)
-	}
+	masterServerCache.LoadRedisScript()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
+
+	grpcServer.GracefulStop()
+
 }
 
 func (s *grpcServerInternal) GetMultiplierAndTimestamp(_ context.Context, _ *pb.MultiplierAndTimestampRequest) (*pb.MultiplierAndTimestampReply, error) {
