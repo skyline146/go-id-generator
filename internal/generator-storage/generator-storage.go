@@ -34,7 +34,7 @@ func (s *Storage) Init(grpcClient pb.OrchestratorClient) {
 	go s.observeIdsChanLen()
 }
 
-func (s *Storage) GetUniqueIdWithType(ctx context.Context, sysType string) (newId string, err error) {
+func (s *Storage) GetUniqueIdWithType(sysType string) (newId string, err error) {
 	sysTypeId, err := lib.GetSysTypeValue(sysType)
 	if err != nil {
 		return "", err

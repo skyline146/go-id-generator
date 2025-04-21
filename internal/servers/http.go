@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	generator_storage "id-generator/internal/generator-storage"
 )
@@ -76,10 +75,7 @@ func (s *httpController) getUniqueId(res http.ResponseWriter, req *http.Request)
 	query := req.URL.Query()
 	sysType := query.Get("sys_type")
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-	defer cancel()
-
-	newId, err := s.storage.GetUniqueIdWithType(ctx, sysType)
+	newId, err := s.storage.GetUniqueIdWithType(sysType)
 	if err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 		res.Write([]byte(fmt.Sprintf("error while generating new unique id: %v", err)))

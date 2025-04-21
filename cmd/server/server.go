@@ -70,7 +70,7 @@ func initStorageWithMasterServer(storage *generator_storage.Storage) {
 
 	MASTER_SERVER_GRPC_PORT := os.Getenv("MASTER_SERVER_GRPC_PORT")
 	if MASTER_SERVER_GRPC_PORT == "" {
-		log.Fatal("'KAFKA_ADDR' variable is undefined")
+		log.Fatal("'MASTER_SERVER_GRPC_PORT' variable is undefined")
 	}
 
 	masterServerGrpcAddr := fmt.Sprintf("%s:%s", "localhost", MASTER_SERVER_GRPC_PORT)

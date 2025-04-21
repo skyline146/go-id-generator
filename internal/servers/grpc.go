@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"time"
 
 	generator_storage "id-generator/internal/generator-storage"
 	"id-generator/internal/pb"
@@ -68,10 +67,7 @@ func (s *grpcServer) Stop(stopCh chan struct{}, done func()) {
 }
 
 func (s *grpcController) GetUniqueId(_ context.Context, req *pb.UniqueIdRequest) (*pb.UniqueIdReply, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-	defer cancel()
-
-	newId, err := s.storage.GetUniqueIdWithType(ctx, req.GetSysType().String())
+	newId, err := s.storage.GetUniqueIdWithType(req.GetSysType().String())
 	if err != nil {
 		return nil, fmt.Errorf("error while generating new unique id: %v", err)
 	}
