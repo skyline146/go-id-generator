@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -20,19 +21,29 @@ import (
 
 type grpcServerInternal struct {
 	pb.UnimplementedOrchestratorServer
+	masterServerCache *master_server.MasterServer
 }
 
 var (
-	masterServerCache = master_server.NewMasterServer()
-	env               = flag.String("env", ".env", "Env file to load values from")
+	env = flag.String("env", ".env", "Env(s) file to load variables from. E.g. .env or .env1,.env2")
 )
 
 func main() {
 	flag.Parse()
 
-	err := godotenv.Load(*env)
+	err := godotenv.Load(strings.Split(*env, ",")...)
 	if err != nil {
 		log.Print("failed to load env file")
+	}
+
+	masterServerCache, err := master_server.NewMasterServer(
+		os.Getenv("REDIS_COUNTER_KEY"),
+		os.Getenv("REDIS_TIMESTAMP_KEY"),
+		os.Getenv("MAX_ALLOWED_MULTIPLIER"),
+		os.Getenv("FREE_DIGITS_FOR_IDS"),
+	)
+	if err != nil {
+		log.Fatalf("error in initializing master server: %v", err)
 	}
 
 	MASTER_SERVER_GRPC_PORT := os.Getenv("MASTER_SERVER_GRPC_PORT")
@@ -46,7 +57,9 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	pb.RegisterOrchestratorServer(grpcServer, &grpcServerInternal{})
+	pb.RegisterOrchestratorServer(grpcServer, &grpcServerInternal{
+		masterServerCache: masterServerCache,
+	})
 	log.Printf("grpc server listening at %v", lis.Addr())
 
 	go func() {
@@ -69,7 +82,7 @@ func (s *grpcServerInternal) GetMultiplierAndTimestamp(_ context.Context, _ *pb.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	multiplier, timestamp, err := masterServerCache.GetMultiplierAndTimestamp(ctx)
+	multiplier, timestamp, err := s.masterServerCache.GetMultiplierAndTimestamp(ctx)
 	if err != nil {
 		return nil, err
 	}

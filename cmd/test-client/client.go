@@ -163,7 +163,7 @@ func mockHttpRequest(httpAddr string) string {
 }
 
 func mockGrpcRequest(grpcClient pb.GeneratorClient, grpcAddr string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 
 	response, err := grpcClient.GetUniqueId(ctx, &pb.UniqueIdRequest{SysType: pb.SysType_Vendor})
 	if err != nil {

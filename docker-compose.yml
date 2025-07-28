@@ -11,5 +11,14 @@ services:
     # network_mode: "host"
     volumes:
       - dragonflydata:/data
+
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6380:6379"
+    volumes: 
+      - cache:/data
 volumes:
   dragonflydata:
+  cache:

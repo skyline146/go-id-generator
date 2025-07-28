@@ -3,7 +3,7 @@ testdata_dir = "testdata"
 tmp_dir = "tmp"
 
 [build]
-  args_bin = ["--env .env.master1"]
+  args_bin = ["--env .env"]
   bin = "./tmp/server1.exe"
   cmd = "go build -o ./tmp/server1.exe ./cmd/server/server.go"
   delay = 1000

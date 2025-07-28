@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	testStorage_master1 = NewStorage(1000)
-	testStorage_master2 = NewStorage(1000)
+	testStorage_master1 *Storage
+	testStorage_master2 *Storage
 )
 
 func getMasterGrpcClientFromEnv(envFile string) pb.OrchestratorClient {
@@ -40,8 +40,10 @@ func getMasterGrpcClientFromEnv(envFile string) pb.OrchestratorClient {
 }
 
 func setup() {
-	testStorage_master1.Init(getMasterGrpcClientFromEnv("../../.env.master1"))
-	testStorage_master2.Init(getMasterGrpcClientFromEnv("../../.env.master2"))
+	testStorage_master1, _ = NewStorage("test-counter-key", "test-timestamp-key", "10000", "7", 0.3)
+	// testStorage_master1.Init(getMasterGrpcClientFromEnv("../../.env.master1"))
+	testStorage_master2, _ = NewStorage("test-counter-key", "test-timestamp-key", "10000", "7", 0.3)
+	// testStorage_master2.Init(getMasterGrpcClientFromEnv("../../.env.master2"))
 }
 
 func TestMain(m *testing.M) {
@@ -106,6 +108,6 @@ func TestIdsOnUniqueness(t *testing.T) {
 	})
 
 	if len(notUniqueIds) != 0 {
-		t.Errorf("there are not uniques ids: %q\n", notUniqueIds)
+		t.Errorf("there are not unique ids: %q\n", notUniqueIds)
 	}
 }
